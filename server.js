@@ -168,6 +168,16 @@ async function storageToCSVText() {
   return fs.readFileSync(CSV_FILE, 'utf8');
 }
 
+// Escape HTML to prevent XSS
+function escapeHTML(str) {
+  if (str === null || str === undefined) str = '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // ============ HTTP Server ============
 
 // Parse request body
@@ -259,6 +269,64 @@ async function handleRequest(req, res) {
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, message: '下载失败: ' + e.message }));
+    }
+    return;
+  }
+
+  // Admin page: view registrations as a styled HTML table
+  if (pathname === '/admin' && req.method === 'GET') {
+    try {
+      const records = await storageSelect();
+      const rows = records.map(r => `
+        <tr>
+          <td>${escapeHTML(r['提交时间'])}</td>
+          <td>${escapeHTML(r['公寓'])}</td>
+          <td>${escapeHTML(r['房间号'])}</td>
+          <td>${escapeHTML(r['姓名'])}</td>
+          <td>${escapeHTML(r['身份证号码'])}</td>
+          <td>${escapeHTML(r['备注'])}</td>
+        </tr>`).join('');
+      const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登记数据查看</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6fa; margin: 0; padding: 20px; color: #333; }
+  h1 { font-size: 20px; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-block; background: #07c160; color: #fff; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; }
+  .count { color: #666; font-size: 14px; }
+  .table-wrap { overflow-x: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  table { border-collapse: collapse; width: 100%; min-width: 700px; }
+  th, td { padding: 12px 14px; text-align: left; font-size: 14px; border-bottom: 1px solid #eee; white-space: nowrap; }
+  th { background: #f0f2f5; color: #555; position: sticky; top: 0; }
+  tr:last-child td { border-bottom: none; }
+  .empty { text-align: center; padding: 40px; color: #999; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>公寓入住登记数据（共 ${records.length} 条）</h1>
+    <div>
+      <a class="btn" href="/api/download">下载 Excel 表格</a>
+      <a class="btn" href="/admin" style="background:#576b95">刷新</a>
+    </div>
+  </div>
+  <div class="table-wrap">
+    ${records.length ? `<table>
+      <thead><tr><th>提交时间</th><th>公寓</th><th>房间号</th><th>姓名</th><th>身份证号码</th><th>备注</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : '<div class="empty">还没有登记记录</div>'}
+  </div>
+</body>
+</html>`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('加载失败: ' + e.message);
     }
     return;
   }
