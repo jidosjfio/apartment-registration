@@ -168,6 +168,26 @@ async function storageToCSVText() {
   return fs.readFileSync(CSV_FILE, 'utf8');
 }
 
+// Delete a record matched by (submitTime + room + idNumber)
+async function storageDelete(submitTime, room, idNumber) {
+  if (USE_DB) {
+    await pool.query(
+      'DELETE FROM registrations WHERE submit_time=$1 AND room=$2 AND id_number=$3',
+      [submitTime, room, idNumber]
+    );
+  } else {
+    const records = csvSelect();
+    const remaining = records.filter(r =>
+      !((r['提交时间'] || '') === submitTime && (r['房间号'] || '') === room && (r['身份证号码'] || '') === idNumber)
+    );
+    let csv = '\uFEFF' + CSV_HEADERS.map(h => `"${h}"`).join(',') + '\n';
+    for (const r of remaining) {
+      csv += [r['提交时间'], r['公寓'], r['房间号'], r['姓名'], r['身份证号码'], r['备注']].map(escapeCSV).join(',') + '\n';
+    }
+    fs.writeFileSync(CSV_FILE, csv, 'utf8');
+  }
+}
+
 // Escape HTML to prevent XSS
 function escapeHTML(str) {
   if (str === null || str === undefined) str = '';
@@ -273,6 +293,25 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // API: Delete a record (matched by submitTime + room + idNumber)
+  if (pathname === '/api/delete' && req.method === 'POST') {
+    try {
+      const data = await parseBody(req);
+      if (data.token !== 'apt-restore-2026') {
+        res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, message: '令牌错误' }));
+        return;
+      }
+      await storageDelete(data.submitTime || '', data.room || '', data.idNumber || '');
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, message: '删除成功' }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, message: '删除失败: ' + e.message }));
+    }
+    return;
+  }
+
   // Admin page: view registrations as a styled HTML table
   if (pathname === '/admin' && req.method === 'GET') {
     try {
@@ -285,6 +324,7 @@ async function handleRequest(req, res) {
           <td>${escapeHTML(r['姓名'])}</td>
           <td>${escapeHTML(r['身份证号码'])}</td>
           <td>${escapeHTML(r['备注'])}</td>
+          <td><button class="del-btn" data-time="${escapeHTML(r['提交时间'])}" data-room="${escapeHTML(r['房间号'])}" data-id="${escapeHTML(r['身份证号码'])}">删除</button></td>
         </tr>`).join('');
       const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -303,6 +343,8 @@ async function handleRequest(req, res) {
   th, td { padding: 12px 14px; text-align: left; font-size: 14px; border-bottom: 1px solid #eee; white-space: nowrap; }
   th { background: #f0f2f5; color: #555; position: sticky; top: 0; }
   tr:last-child td { border-bottom: none; }
+  .del-btn { background: #fa5151; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .del-btn:hover { background: #e03e3e; }
   .empty { text-align: center; padding: 40px; color: #999; }
 </style>
 </head>
@@ -316,10 +358,28 @@ async function handleRequest(req, res) {
   </div>
   <div class="table-wrap">
     ${records.length ? `<table>
-      <thead><tr><th>提交时间</th><th>公寓</th><th>房间号</th><th>姓名</th><th>身份证号码</th><th>备注</th></tr></thead>
+      <thead><tr><th>提交时间</th><th>公寓</th><th>房间号</th><th>姓名</th><th>身份证号码</th><th>备注</th><th>操作</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>` : '<div class="empty">还没有登记记录</div>'}
   </div>
+<script>
+document.querySelectorAll('.del-btn').forEach(function(btn){
+  btn.addEventListener('click', async function(){
+    if(!confirm('确定删除这条记录吗？此操作不可撤销。')) return;
+    var time = btn.dataset.time, room = btn.dataset.room, id = btn.dataset.id;
+    try {
+      var res = await fetch('/api/delete', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({token:'apt-restore-2026', submitTime:time, room:room, idNumber:id})
+      });
+      var j = await res.json();
+      if(j.success){ alert('已删除'); location.reload(); }
+      else { alert('删除失败：'+j.message); }
+    } catch(e){ alert('网络错误，请重试'); }
+  });
+});
+</script>
 </body>
 </html>`;
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
