@@ -1,0 +1,253 @@
+/* ===== Reset & Base ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: #0f1115;
+  color: #e0e0e0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ===== App Container ===== */
+.app-container {
+  width: 100%;
+  max-width: 420px;
+  height: 100vh;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  background: #1a1d24;
+}
+
+/* ===== Pages ===== */
+.page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  animation: fadeIn 0.3s ease;
+}
+
+.page.active {
+  display: flex;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== Page 1: Home ===== */
+.page-header {
+  padding: 60px 24px 30px;
+  text-align: center;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.page-header p {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.apartment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px 24px;
+  flex: 1;
+  align-content: center;
+}
+
+.apt-btn {
+  height: 150px;
+  border: none;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: #ffffff;
+}
+
+.apt-btn:active {
+  transform: scale(0.95);
+}
+
+.apt-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+.apt-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+.apt-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+.apt-4 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+
+.apt-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.apt-name {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* ===== Page 2: Form ===== */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  padding: 16px 16px;
+  padding-top: 50px;
+  gap: 12px;
+  background: #1a1d24;
+  border-bottom: 1px solid #2a2e38;
+}
+
+.back-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: #e0e0e0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.back-btn:active {
+  background: #2a2e38;
+}
+
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.form-container {
+  padding: 24px 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid #2a2e38;
+  border-radius: 10px;
+  background: #0f1115;
+  color: #e0e0e0;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+  resize: none;
+  font-family: inherit;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #4b5563;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: #34d399;
+}
+
+.form-group textarea {
+  min-height: 60px;
+  max-height: 120px;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 50px;
+  border: none;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 10px;
+}
+
+/* Gray disabled state */
+.submit-btn.disabled {
+  background: #2a2e38;
+  color: #4b5563;
+  cursor: not-allowed;
+}
+
+/* Green active state */
+.submit-btn.active {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  color: #ffffff;
+}
+
+.submit-btn.active:active {
+  transform: scale(0.98);
+}
+
+/* ===== Page 3: Done ===== */
+#page-done {
+  justify-content: center;
+  align-items: center;
+  background: #1a1d24;
+}
+
+.done-container {
+  text-align: center;
+}
+
+.done-check {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.done-text {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 4px;
+}

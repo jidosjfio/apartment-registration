@@ -1,0 +1,12 @@
+{
+  "name": "apartment-registration",
+  "version": "1.0.0",
+  "description": "公寓入住人员信息登记小程序",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  }
+}
