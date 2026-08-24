@@ -331,6 +331,46 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // API: Restore old records after database migration
+  // GET /api/restore?token=XXX&data=<base64 JSON>
+  // Only inserts records that don't already exist (matched by room + id number).
+  if (pathname === '/api/restore' && req.method === 'GET') {
+    try {
+      const token = url.searchParams.get('token') || '';
+      const dataB64 = url.searchParams.get('data') || '';
+      if (token !== 'apt-restore-2026') {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('令牌错误');
+        return;
+      }
+      const json = Buffer.from(dataB64.replace(/-/g, '+').replace(/_/g, '/').replace(/ /g, '+'), 'base64').toString('utf8');
+      const items = JSON.parse(json);
+      const existing = await storageSelect();
+      const existKeys = new Set(existing.map(r => (r['房间号'] || '') + '|' + (r['身份证号码'] || '')));
+      let inserted = 0, skipped = 0;
+      for (const it of items) {
+        const record = {
+          submitTime: it.t || '',
+          apartment: it.a || '',
+          room: it.r || '',
+          name: it.n || '',
+          idNumber: it.i || '',
+          notes: it.o || ''
+        };
+        if (existKeys.has(record.room + '|' + record.idNumber)) { skipped++; continue; }
+        await storageInsert(record);
+        inserted++;
+      }
+      const msg = `数据恢复完成：新导入 ${inserted} 条，跳过已存在 ${skipped} 条。`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>恢复结果</title></head><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:#07c160">${msg}</h2><p><a href="/admin">点击查看登记数据表</a></p></body></html>`);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('恢复失败: ' + e.message);
+    }
+    return;
+  }
+
   // API: Health check (for uptime monitors)
   if (pathname === '/api/health' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
