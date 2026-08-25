@@ -80,7 +80,6 @@ submitBtn.addEventListener('click', async () => {
     notes: inputNotes.value.trim()
   };
 
-  submitBtn.textContent = '提交中...';
   submitBtn.disabled = true;
 
   try {
@@ -96,12 +95,10 @@ submitBtn.addEventListener('click', async () => {
       showPage(pageDone);
     } else {
       alert('提交失败: ' + result.message);
-      submitBtn.textContent = '确认';
       submitBtn.disabled = false;
     }
   } catch (e) {
     alert('网络错误，请重试');
-    submitBtn.textContent = '确认';
     submitBtn.disabled = false;
   }
 });
