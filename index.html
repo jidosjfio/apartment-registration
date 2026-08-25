@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>公寓入住登记</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- ========== 页面一：公寓选择 ========== -->
+    <div id="page-home" class="page active">
+      <div class="page-header">
+        <h1>公寓入住登记</h1>
+        <p>请选择公寓</p>
+      </div>
+      <div class="apartment-grid">
+        <button class="apt-btn apt-1" data-apartment="千禧">
+          <span class="apt-icon">A</span>
+          <span class="apt-name">千禧</span>
+        </button>
+        <button class="apt-btn apt-2" data-apartment="香山">
+          <span class="apt-icon">B</span>
+          <span class="apt-name">香山</span>
+        </button>
+        <button class="apt-btn apt-3" data-apartment="时代">
+          <span class="apt-icon">C</span>
+          <span class="apt-name">时代</span>
+        </button>
+        <button class="apt-btn apt-4" data-apartment="爱家">
+          <span class="apt-icon">D</span>
+          <span class="apt-name">爱家</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ========== 页面二：登记表单 ========== -->
+    <div id="page-form" class="page">
+      <div class="nav-bar">
+        <button class="back-btn" onclick="goBack()">&larr;</button>
+        <span class="nav-title" id="form-apartment-name">登记</span>
+      </div>
+      <div class="form-container">
+        <div class="form-group">
+          <label>房间号</label>
+          <input type="text" id="input-room" placeholder="请输入房间号" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label>姓名</label>
+          <input type="text" id="input-name" placeholder="请输入姓名" maxlength="30">
+        </div>
+        <div class="form-group">
+          <label>身份证号码</label>
+          <input type="text" id="input-id" placeholder="请输入身份证号码" maxlength="18">
+        </div>
+        <div class="form-group">
+          <label>手机号码</label>
+          <input type="tel" id="input-phone" placeholder="请输入手机号码" maxlength="11" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <div class="form-group">
+          <label>备注</label>
+          <textarea id="input-notes" placeholder="选填" maxlength="200"></textarea>
+        </div>
+        <button id="submit-btn" class="submit-btn disabled" disabled>确定</button>
+        <div class="privacy-notice">
+          <div class="privacy-line privacy-line-main">请填写本人真实信息</div>
+          <div class="privacy-line">在此填写的内容为保密数据</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 页面三：登记完成 ========== -->
+    <div id="page-done" class="page">
+      <div class="done-container">
+        <div class="done-check">
+          <svg viewBox="0 0 52 52" width="64" height="64">
+            <circle cx="26" cy="26" r="25" fill="none" stroke="#34d399" stroke-width="2"/>
+            <path fill="none" stroke="#34d399" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M14 27 l8 8 l16 -18"/>
+          </svg>
+        </div>
+        <h2 class="done-text">登记完成</h2>
+        <button id="next-btn" class="next-btn">登记下一位住户</button>
+      </div>
+    </div>
+
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
