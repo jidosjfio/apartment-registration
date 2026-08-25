@@ -106,5 +106,19 @@ submitBtn.addEventListener('click', async () => {
   }
 });
 
+// ===== Next Resident =====
+// 点击"登记下一位住户"：清空本机表单输入（不影响后台已保存的数据），回到公寓选择页
+document.getElementById('next-btn').addEventListener('click', () => {
+  // 仅清空前端输入框，后台数据库中的登记数据不受任何影响
+  inputRoom.value = '';
+  inputName.value = '';
+  inputId.value = '';
+  inputPhone.value = '';
+  inputNotes.value = '';
+  selectedApartment = '';
+  updateSubmitButton();
+  showPage(pageHome);
+});
+
 // ===== Init =====
 showPage(pageHome);

@@ -293,3 +293,23 @@ html, body {
   color: #ffffff;
   letter-spacing: 4px;
 }
+
+/* ===== Done Page: Next Resident Button ===== */
+.next-btn {
+  margin-top: 36px;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #34d399, #10b981);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.next-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
