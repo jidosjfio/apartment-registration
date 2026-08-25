@@ -194,6 +194,42 @@ async function storageDelete(submitTime, room, idNumber) {
   }
 }
 
+// Update a record matched by original (submitTime + room + idNumber)
+// updates: { apartment, room, name, idNumber, phone, notes }
+// Returns true if a record was found and updated.
+async function storageUpdate(origSubmitTime, origRoom, origIdNumber, updates) {
+  if (USE_DB) {
+    const result = await pool.query(
+      'UPDATE registrations SET apartment=$1, room=$2, name=$3, id_number=$4, phone=$5, notes=$6 WHERE submit_time=$7 AND room=$8 AND id_number=$9',
+      [updates.apartment, updates.room, updates.name, updates.idNumber, updates.phone, updates.notes,
+       origSubmitTime, origRoom, origIdNumber]
+    );
+    return result.rowCount > 0;
+  } else {
+    const records = csvSelect();
+    let updated = false;
+    for (const r of records) {
+      if ((r['提交时间'] || '') === origSubmitTime && (r['房间号'] || '') === origRoom && (r['身份证号码'] || '') === origIdNumber) {
+        r['公寓'] = updates.apartment;
+        r['房间号'] = updates.room;
+        r['姓名'] = updates.name;
+        r['身份证号码'] = updates.idNumber;
+        r['手机号码'] = updates.phone;
+        r['备注'] = updates.notes;
+        updated = true;
+      }
+    }
+    if (updated) {
+      let csv = '\uFEFF' + CSV_HEADERS.map(h => `"${h}"`).join(',') + '\n';
+      for (const r of records) {
+        csv += [r['提交时间'], r['公寓'], r['房间号'], r['姓名'], r['身份证号码'], r['手机号码'] || '', r['备注']].map(escapeCSV).join(',') + '\n';
+      }
+      fs.writeFileSync(CSV_FILE, csv, 'utf8');
+    }
+    return updated;
+  }
+}
+
 // Escape HTML to prevent XSS
 function escapeHTML(str) {
   if (str === null || str === undefined) str = '';
@@ -319,11 +355,43 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // API: Update a record (matched by original submitTime + room + idNumber)
+  if (pathname === '/api/update' && req.method === 'POST') {
+    try {
+      const data = await parseBody(req);
+      if (data.token !== 'apt-restore-2026') {
+        res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, message: '令牌错误' }));
+        return;
+      }
+      const updates = {
+        apartment: data.apartment || '',
+        room: data.room || '',
+        name: data.name || '',
+        idNumber: data.idNumber || '',
+        phone: data.phone || '',
+        notes: data.notes || ''
+      };
+      const updated = await storageUpdate(data.origSubmitTime || '', data.origRoom || '', data.origIdNumber || '', updates);
+      if (!updated) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, message: '未找到要修改的记录，请刷新页面后重试' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, message: '修改成功' }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, message: '修改失败: ' + e.message }));
+    }
+    return;
+  }
+
   // Admin page: view registrations as a styled HTML table
   if (pathname === '/admin' && req.method === 'GET') {
     try {
       const records = await storageSelect();
-      const rows = records.map(r => `
+      const rows = records.map((r, idx) => `
         <tr>
           <td>${escapeHTML(r['提交时间'])}</td>
           <td>${escapeHTML(r['公寓'])}</td>
@@ -332,7 +400,10 @@ async function handleRequest(req, res) {
           <td>${escapeHTML(r['身份证号码'])}</td>
           <td>${escapeHTML(r['手机号码'] || '')}</td>
           <td>${escapeHTML(r['备注'])}</td>
-          <td><button class="del-btn" data-time="${escapeHTML(r['提交时间'])}" data-room="${escapeHTML(r['房间号'])}" data-id="${escapeHTML(r['身份证号码'])}">删除</button></td>
+          <td>
+            <button class="edit-btn" data-time="${escapeHTML(r['提交时间'])}" data-room="${escapeHTML(r['房间号'])}" data-id="${escapeHTML(r['身份证号码'])}">编辑</button>
+            <button class="del-btn" data-time="${escapeHTML(r['提交时间'])}" data-room="${escapeHTML(r['房间号'])}" data-id="${escapeHTML(r['身份证号码'])}">删除</button>
+          </td>
         </tr>`).join('');
       const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -353,7 +424,24 @@ async function handleRequest(req, res) {
   tr:last-child td { border-bottom: none; }
   .del-btn { background: #fa5151; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
   .del-btn:hover { background: #e03e3e; }
+  .edit-btn { background: #576b95; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-right: 6px; }
+  .edit-btn:hover { background: #46587f; }
   .empty { text-align: center; padding: 40px; color: #999; }
+  /* ===== Edit Modal ===== */
+  .modal-mask { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 420px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+  .modal h3 { margin: 0 0 16px; font-size: 18px; }
+  .modal .field { margin-bottom: 12px; }
+  .modal .field label { display: block; font-size: 13px; color: #666; margin-bottom: 5px; }
+  .modal .field input, .modal .field select, .modal .field textarea { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; font-family: inherit; outline: none; }
+  .modal .field input:focus, .modal .field select:focus, .modal .field textarea:focus { border-color: #576b95; }
+  .modal .field textarea { resize: vertical; min-height: 50px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-actions .btn { flex: 1; text-align: center; border: none; cursor: pointer; font-size: 15px; padding: 11px 0; border-radius: 8px; }
+  .modal-actions .btn-cancel { background: #f0f2f5; color: #333; }
+  .modal-actions .btn-save { background: #07c160; color: #fff; }
+  .modal-actions .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -369,6 +457,44 @@ async function handleRequest(req, res) {
       <thead><tr><th>提交时间</th><th>公寓</th><th>房间号</th><th>姓名</th><th>身份证号码</th><th>手机号码</th><th>备注</th><th>操作</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>` : '<div class="empty">还没有登记记录</div>'}
+  </div>
+  <div class="modal-mask" id="edit-mask">
+    <div class="modal">
+      <h3>编辑登记信息</h3>
+      <div class="field">
+        <label>公寓</label>
+        <select id="edit-apartment">
+          <option value="千禧">千禧公寓</option>
+          <option value="香山">香山公寓</option>
+          <option value="时代">时代公寓</option>
+          <option value="爱家">爱家公寓</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>房间号</label>
+        <input type="text" id="edit-room" maxlength="20">
+      </div>
+      <div class="field">
+        <label>姓名</label>
+        <input type="text" id="edit-name" maxlength="30">
+      </div>
+      <div class="field">
+        <label>身份证号码</label>
+        <input type="text" id="edit-id" maxlength="18">
+      </div>
+      <div class="field">
+        <label>手机号码</label>
+        <input type="tel" id="edit-phone" maxlength="11">
+      </div>
+      <div class="field">
+        <label>备注</label>
+        <textarea id="edit-notes" maxlength="200"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="edit-cancel">取消</button>
+        <button class="btn btn-save" id="edit-save">保存</button>
+      </div>
+    </div>
   </div>
 <script>
 document.querySelectorAll('.del-btn').forEach(function(btn){
@@ -386,6 +512,65 @@ document.querySelectorAll('.del-btn').forEach(function(btn){
       else { alert('删除失败：'+j.message); }
     } catch(e){ alert('网络错误，请重试'); }
   });
+});
+/* ===== Edit ===== */
+var mask = document.getElementById('edit-mask');
+var editing = null; // { origTime, origRoom, origId }
+
+function openEdit(btn){
+  // Capture the original row values from the table cells (before any edits)
+  var row = btn.closest('tr');
+  var cells = row.cells;
+  editing = { origTime: btn.dataset.time, origRoom: btn.dataset.room, origId: btn.dataset.id };
+  document.getElementById('edit-apartment').value = cells[1].textContent;
+  document.getElementById('edit-room').value = cells[2].textContent;
+  document.getElementById('edit-name').value = cells[3].textContent;
+  document.getElementById('edit-id').value = cells[4].textContent;
+  document.getElementById('edit-phone').value = cells[5].textContent;
+  document.getElementById('edit-notes').value = cells[6].textContent;
+  mask.classList.add('show');
+}
+function closeEdit(){ mask.classList.remove('show'); editing = null; }
+
+document.querySelectorAll('.edit-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){ openEdit(btn); });
+});
+document.getElementById('edit-cancel').addEventListener('click', closeEdit);
+mask.addEventListener('click', function(e){ if(e.target === mask) closeEdit(); });
+
+document.getElementById('edit-save').addEventListener('click', async function(){
+  if(!editing) return;
+  var data = {
+    token: 'apt-restore-2026',
+    origSubmitTime: editing.origTime,
+    origRoom: editing.origRoom,
+    origIdNumber: editing.origId,
+    apartment: document.getElementById('edit-apartment').value,
+    room: document.getElementById('edit-room').value.trim(),
+    name: document.getElementById('edit-name').value.trim(),
+    idNumber: document.getElementById('edit-id').value.trim(),
+    phone: document.getElementById('edit-phone').value.trim(),
+    notes: document.getElementById('edit-notes').value.trim()
+  };
+  if(!data.room || !data.name || !data.idNumber || !data.phone){
+    alert('房间号、姓名、身份证号码、手机号码为必填项');
+    return;
+  }
+  var btn = this;
+  btn.disabled = true; btn.textContent = '保存中...';
+  try {
+    var res = await fetch('/api/update', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    var j = await res.json();
+    if(j.success){ alert('修改成功'); location.reload(); }
+    else { alert('修改失败：'+j.message); btn.disabled = false; btn.textContent = '保存'; }
+  } catch(e){
+    alert('网络错误，请重试');
+    btn.disabled = false; btn.textContent = '保存';
+  }
 });
 </script>
 </body>
