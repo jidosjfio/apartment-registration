@@ -8,7 +8,7 @@ const CSV_FILE = path.join(__dirname, 'registrations.csv');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // CSV headers
-const CSV_HEADERS = ['提交时间', '公寓', '房间号', '姓名', '身份证号码', '备注'];
+const CSV_HEADERS = ['提交时间', '公寓', '房间号', '姓名', '身份证号码', '手机号码', '备注'];
 
 // ============ Storage Backend Selection ============
 // If DATABASE_URL is set (cloud deployment), use PostgreSQL.
@@ -30,22 +30,25 @@ async function initDB() {
       room TEXT NOT NULL,
       name TEXT NOT NULL,
       id_number TEXT NOT NULL,
+      phone TEXT DEFAULT '',
       notes TEXT DEFAULT ''
     )
   `);
+  // Backward-compatible: add phone column on databases created before this field existed
+  try { await pool.query("ALTER TABLE registrations ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''"); } catch (e) {}
   console.log('[DB] 数据库连接成功，数据表已就绪');
 }
 
 async function dbInsert(record) {
   await pool.query(
-    'INSERT INTO registrations (submit_time, apartment, room, name, id_number, notes) VALUES ($1,$2,$3,$4,$5,$6)',
-    [record.submitTime, record.apartment, record.room, record.name, record.idNumber, record.notes]
+    'INSERT INTO registrations (submit_time, apartment, room, name, id_number, phone, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [record.submitTime, record.apartment, record.room, record.name, record.idNumber, record.phone || '', record.notes || '']
   );
 }
 
 async function dbSelect() {
   const result = await pool.query(
-    'SELECT submit_time, apartment, room, name, id_number, notes FROM registrations ORDER BY id'
+    'SELECT submit_time, apartment, room, name, id_number, phone, notes FROM registrations ORDER BY id'
   );
   return result.rows.map(r => ({
     '提交时间': r.submit_time,
@@ -53,6 +56,7 @@ async function dbSelect() {
     '房间号': r.room,
     '姓名': r.name,
     '身份证号码': r.id_number,
+    '手机号码': r.phone || '',
     '备注': r.notes
   }));
 }
@@ -86,6 +90,7 @@ function csvAppend(record) {
     record.room || '',
     record.name || '',
     record.idNumber || '',
+    record.phone || '',
     record.notes || ''
   ].map(escapeCSV).join(',') + '\n';
   fs.appendFileSync(CSV_FILE, row, 'utf8');
@@ -143,6 +148,7 @@ function recordsToCSV(records) {
       r['房间号'] || r.room || '',
       r['姓名'] || r.name || '',
       r['身份证号码'] || r.idNumber || '',
+      r['手机号码'] || r.phone || '',
       r['备注'] || r.notes || ''
     ].map(escapeCSV).join(',') + '\n';
   }
@@ -182,7 +188,7 @@ async function storageDelete(submitTime, room, idNumber) {
     );
     let csv = '\uFEFF' + CSV_HEADERS.map(h => `"${h}"`).join(',') + '\n';
     for (const r of remaining) {
-      csv += [r['提交时间'], r['公寓'], r['房间号'], r['姓名'], r['身份证号码'], r['备注']].map(escapeCSV).join(',') + '\n';
+      csv += [r['提交时间'], r['公寓'], r['房间号'], r['姓名'], r['身份证号码'], r['手机号码'] || '', r['备注']].map(escapeCSV).join(',') + '\n';
     }
     fs.writeFileSync(CSV_FILE, csv, 'utf8');
   }
@@ -252,6 +258,7 @@ async function handleRequest(req, res) {
         room: data.room || '',
         name: data.name || '',
         idNumber: data.idNumber || '',
+        phone: data.phone || '',
         notes: data.notes || ''
       };
       await storageInsert(record);
@@ -323,6 +330,7 @@ async function handleRequest(req, res) {
           <td>${escapeHTML(r['房间号'])}</td>
           <td>${escapeHTML(r['姓名'])}</td>
           <td>${escapeHTML(r['身份证号码'])}</td>
+          <td>${escapeHTML(r['手机号码'] || '')}</td>
           <td>${escapeHTML(r['备注'])}</td>
           <td><button class="del-btn" data-time="${escapeHTML(r['提交时间'])}" data-room="${escapeHTML(r['房间号'])}" data-id="${escapeHTML(r['身份证号码'])}">删除</button></td>
         </tr>`).join('');
@@ -358,7 +366,7 @@ async function handleRequest(req, res) {
   </div>
   <div class="table-wrap">
     ${records.length ? `<table>
-      <thead><tr><th>提交时间</th><th>公寓</th><th>房间号</th><th>姓名</th><th>身份证号码</th><th>备注</th><th>操作</th></tr></thead>
+      <thead><tr><th>提交时间</th><th>公寓</th><th>房间号</th><th>姓名</th><th>身份证号码</th><th>手机号码</th><th>备注</th><th>操作</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>` : '<div class="empty">还没有登记记录</div>'}
   </div>
@@ -415,6 +423,7 @@ document.querySelectorAll('.del-btn').forEach(function(btn){
           room: it.r || '',
           name: it.n || '',
           idNumber: it.i || '',
+          phone: it.p || '',
           notes: it.o || ''
         };
         if (existKeys.has(record.room + '|' + record.idNumber)) { skipped++; continue; }

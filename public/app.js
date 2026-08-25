@@ -9,6 +9,7 @@ const pageDone = document.getElementById('page-done');
 const inputRoom = document.getElementById('input-room');
 const inputName = document.getElementById('input-name');
 const inputId = document.getElementById('input-id');
+const inputPhone = document.getElementById('input-phone');
 const inputNotes = document.getElementById('input-notes');
 const submitBtn = document.getElementById('submit-btn');
 const formApartmentName = document.getElementById('form-apartment-name');
@@ -28,6 +29,7 @@ document.querySelectorAll('.apt-btn').forEach(btn => {
     inputRoom.value = '';
     inputName.value = '';
     inputId.value = '';
+    inputPhone.value = '';
     inputNotes.value = '';
     updateSubmitButton();
     showPage(pageForm);
@@ -44,8 +46,9 @@ function updateSubmitButton() {
   const room = inputRoom.value.trim();
   const name = inputName.value.trim();
   const idNumber = inputId.value.trim();
+  const phone = inputPhone.value.trim();
 
-  const allFilled = room && name && idNumber;
+  const allFilled = room && name && idNumber && phone;
 
   if (allFilled) {
     submitBtn.classList.remove('disabled');
@@ -62,6 +65,7 @@ function updateSubmitButton() {
 inputRoom.addEventListener('input', updateSubmitButton);
 inputName.addEventListener('input', updateSubmitButton);
 inputId.addEventListener('input', updateSubmitButton);
+inputPhone.addEventListener('input', updateSubmitButton);
 
 // ===== Submit Registration =====
 submitBtn.addEventListener('click', async () => {
@@ -72,6 +76,7 @@ submitBtn.addEventListener('click', async () => {
     room: inputRoom.value.trim(),
     name: inputName.value.trim(),
     idNumber: inputId.value.trim(),
+    phone: inputPhone.value.trim(),
     notes: inputNotes.value.trim()
   };
 

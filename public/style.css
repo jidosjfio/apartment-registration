@@ -228,6 +228,48 @@ html, body {
   transform: scale(0.98);
 }
 
+/* ===== Privacy Notice (醒目大字提示) ===== */
+.privacy-notice {
+  margin-top: 24px;
+  padding: 18px 16px;
+  text-align: center;
+  background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 50%, #fff7ed 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.18);
+  animation: privacyPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes privacyPulse {
+  0%, 100% { box-shadow: 0 2px 12px rgba(245, 158, 11, 0.18); }
+  50%      { box-shadow: 0 4px 22px rgba(239, 68, 68, 0.38); }
+}
+
+.privacy-line {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #b91c1c;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1.5;
+}
+
+.privacy-line-main {
+  font-size: 20px;
+  color: #dc2626;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+  margin-bottom: 6px;
+}
+
+.privacy-line-main::before {
+  content: "⚠️ ";
+  font-size: 22px;
+}
+
+.privacy-line:not(.privacy-line-main) {
+  font-size: 16px;
+  color: #c2410c;
+}
+
 /* ===== Page 3: Done ===== */
 #page-done {
   justify-content: center;

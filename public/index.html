@@ -55,10 +55,18 @@
           <input type="text" id="input-id" placeholder="请输入身份证号码" maxlength="18">
         </div>
         <div class="form-group">
+          <label>手机号码</label>
+          <input type="tel" id="input-phone" placeholder="请输入手机号码" maxlength="11" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <div class="form-group">
           <label>备注</label>
           <textarea id="input-notes" placeholder="选填" maxlength="200"></textarea>
         </div>
         <button id="submit-btn" class="submit-btn disabled" disabled>确认</button>
+        <div class="privacy-notice">
+          <div class="privacy-line privacy-line-main">请填写本人真实信息</div>
+          <div class="privacy-line">在此填写的内容为保密数据</div>
+        </div>
       </div>
     </div>
 
