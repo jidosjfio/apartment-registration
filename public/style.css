@@ -194,6 +194,24 @@ html, body {
   border-color: #34d399;
 }
 
+/* ===== 字段错误提示（身份证/手机号位数校验） ===== */
+.field-error {
+  display: none;
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+.field-error:not(:empty) {
+  display: block;
+}
+
 .form-group textarea {
   min-height: 60px;
   max-height: 120px;

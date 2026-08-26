@@ -52,11 +52,13 @@
         </div>
         <div class="form-group">
           <label>身份证号码</label>
-          <input type="text" id="input-id" placeholder="请输入身份证号码" maxlength="18">
+          <input type="text" id="input-id" placeholder="请输入身份证号码（18位）" maxlength="18">
+          <div class="field-error" id="err-id"></div>
         </div>
         <div class="form-group">
           <label>手机号码</label>
-          <input type="tel" id="input-phone" placeholder="请输入手机号码" maxlength="11" inputmode="numeric" pattern="[0-9]*">
+          <input type="tel" id="input-phone" placeholder="请输入手机号码（11位）" maxlength="11" inputmode="numeric" pattern="[0-9]*">
+          <div class="field-error" id="err-phone"></div>
         </div>
         <div class="form-group">
           <label>备注</label>

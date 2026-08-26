@@ -13,6 +13,8 @@ const inputPhone = document.getElementById('input-phone');
 const inputNotes = document.getElementById('input-notes');
 const submitBtn = document.getElementById('submit-btn');
 const formApartmentName = document.getElementById('form-apartment-name');
+const errId = document.getElementById('err-id');
+const errPhone = document.getElementById('err-phone');
 
 // ===== Page Navigation =====
 function showPage(page) {
@@ -48,9 +50,38 @@ function updateSubmitButton() {
   const idNumber = inputId.value.trim();
   const phone = inputPhone.value.trim();
 
-  const allFilled = room && name && idNumber && phone;
+  // 身份证校验：必须恰好18位（前17位数字，末位数字或X），有输入时才提示错误
+  let idOk = true;
+  let idMsg = '';
+  if (idNumber) {
+    if (idNumber.length !== 18) {
+      idOk = false;
+      idMsg = '身份证号码必须为18位，当前只有' + idNumber.length + '位';
+    } else if (!/^\d{17}[\dXx]$/.test(idNumber)) {
+      idOk = false;
+      idMsg = '身份证格式不正确（前17位为数字，末位为数字或X）';
+    }
+  }
+  errId.textContent = idMsg;
 
-  if (allFilled) {
+  // 手机号校验：必须恰好11位且1开头，有输入时才提示错误
+  let phoneOk = true;
+  let phoneMsg = '';
+  if (phone) {
+    if (phone.length !== 11) {
+      phoneOk = false;
+      phoneMsg = '手机号码必须为11位，当前只有' + phone.length + '位';
+    } else if (!/^1\d{10}$/.test(phone)) {
+      phoneOk = false;
+      phoneMsg = '手机号码格式不正确（应为1开头的11位数字）';
+    }
+  }
+  errPhone.textContent = phoneMsg;
+
+  const allFilled = room && name && idNumber && phone;
+  const allValid = allFilled && idOk && phoneOk;
+
+  if (allValid) {
     submitBtn.classList.remove('disabled');
     submitBtn.classList.add('active');
     submitBtn.disabled = false;
