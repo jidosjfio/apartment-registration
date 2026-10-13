@@ -7,8 +7,8 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 8080;
 
 // ============ 后台访问密码保护 ============
-// 密码可在 Render 环境变量 ADMIN_PASSWORD 覆盖，默认 741766162
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '741766162';
+// 密码不写进代码（代码仓库是公开的），只在 Render 环境变量 ADMIN_PASSWORD 中设置
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 // 登录凭证 = 密码的哈希（密码本身不会出现在网页源码里）
 const ADMIN_TOKEN = crypto.createHash('sha256').update('apt-admin:' + ADMIN_PASSWORD).digest('hex').slice(0, 32);
 
@@ -58,7 +58,7 @@ function loginPageHTML() {
     <input type="password" id="pwd" inputmode="numeric" maxlength="20" placeholder="请输入密码" autocomplete="off">
     <button class="btn" id="ok">确定</button>
     <div class="err" id="err">密码错误</div>
-    <div class="hint">忘记密码？房东 QQ 完整号码：<b>741766162</b></div>
+    <div class="hint">${ADMIN_PASSWORD ? '忘记密码？房东 QQ 号开头：<b>7</b>' : '<span style="color:#dc2626">⚠️ 尚未设置访问密码：请在 Render 环境变量中配置 ADMIN_PASSWORD</span>'}</div>
   </div>
 <script>
 var pwd = document.getElementById('pwd');
