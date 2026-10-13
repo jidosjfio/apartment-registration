@@ -1,9 +1,96 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Render provides PORT env var; local dev uses 8080
 const PORT = process.env.PORT || 8080;
+
+// ============ 后台访问密码保护 ============
+// 密码可在 Render 环境变量 ADMIN_PASSWORD 覆盖，默认 741766162
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '741766162';
+// 登录凭证 = 密码的哈希（密码本身不会出现在网页源码里）
+const ADMIN_TOKEN = crypto.createHash('sha256').update('apt-admin:' + ADMIN_PASSWORD).digest('hex').slice(0, 32);
+
+function parseCookies(req) {
+  const out = {};
+  (req.headers.cookie || '').split(';').forEach(function (part) {
+    const i = part.indexOf('=');
+    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  });
+  return out;
+}
+
+// 未登录时显示的密码输入页（不含任何住户数据）
+function loginPageHTML() {
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>请输入访问密码</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+         background:linear-gradient(135deg,#1a1d24,#2a2e38); padding:20px; box-sizing:border-box; }
+  .lock-box { background:#fff; width:100%; max-width:340px; border-radius:16px; padding:28px 24px;
+              box-shadow:0 10px 40px rgba(0,0,0,0.35); text-align:center; }
+  .lock-icon { font-size:40px; margin-bottom:8px; }
+  h2 { margin:0 0 6px; font-size:19px; color:#222; }
+  .sub { font-size:13px; color:#888; margin-bottom:18px; }
+  input { width:100%; padding:13px 14px; border:1.5px solid #ddd; border-radius:10px; font-size:17px;
+          box-sizing:border-box; text-align:center; letter-spacing:2px; outline:none; }
+  input:focus { border-color:#07c160; }
+  .btn { width:100%; margin-top:14px; padding:13px 0; border:none; border-radius:10px; background:#07c160;
+         color:#fff; font-size:16px; font-weight:600; cursor:pointer; }
+  .btn:active { background:#06ad56; }
+  .err { display:none; margin-top:12px; color:#dc2626; font-size:14px; font-weight:600; }
+  .hint { margin-top:16px; padding-top:14px; border-top:1px dashed #e5e5e5;
+          font-size:13px; color:#666; line-height:1.6; }
+  .hint b { color:#07c160; font-size:15px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+  <div class="lock-box">
+    <div class="lock-icon">🔒</div>
+    <h2>登记数据查看</h2>
+    <div class="sub">请输入访问密码</div>
+    <input type="password" id="pwd" inputmode="numeric" maxlength="20" placeholder="请输入密码" autocomplete="off">
+    <button class="btn" id="ok">确定</button>
+    <div class="err" id="err">密码错误</div>
+    <div class="hint">忘记密码？房东 QQ 完整号码：<b>741766162</b></div>
+  </div>
+<script>
+var pwd = document.getElementById('pwd');
+var err = document.getElementById('err');
+function submitPwd(){
+  var v = pwd.value.trim();
+  if(!v) return;
+  fetch('/api/admin-login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ password: v })
+  }).then(function(r){ return r.json(); }).then(function(j){
+    if(j.success){
+      location.reload();
+    } else {
+      err.style.display = 'block';
+      err.textContent = '密码错误，页面即将关闭…';
+      setTimeout(function(){
+        window.close();
+        // 部分浏览器（微信内置等）不允许脚本关闭页面，做兜底处理
+        setTimeout(function(){ location.replace('about:blank'); }, 300);
+      }, 900);
+    }
+  });
+}
+document.getElementById('ok').addEventListener('click', submitPwd);
+pwd.addEventListener('keydown', function(e){ if(e.key === 'Enter') submitPwd(); });
+pwd.focus();
+</script>
+</body>
+</html>`;
+}
 const CSV_FILE = path.join(__dirname, 'registrations.csv');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
@@ -309,6 +396,11 @@ async function handleRequest(req, res) {
 
   // API: Get all records
   if (pathname === '/api/records' && req.method === 'GET') {
+    if (parseCookies(req).admin_auth !== ADMIN_TOKEN) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, message: '请先登录' }));
+      return;
+    }
     try {
       const records = await storageSelect();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -322,6 +414,11 @@ async function handleRequest(req, res) {
 
   // API: Download CSV
   if (pathname === '/api/download' && req.method === 'GET') {
+    if (parseCookies(req).admin_auth !== ADMIN_TOKEN) {
+      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('请先登录后再下载');
+      return;
+    }
     try {
       const csvContent = await storageToCSVText();
       res.writeHead(200, {
@@ -387,12 +484,39 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // Admin login: verify password, set cookie on success
+  if (pathname === '/api/admin-login' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 1e6) req.destroy(); });
+    req.on('end', () => {
+      let password = '';
+      try { password = (JSON.parse(body || '{}').password || '').toString().trim(); } catch (e) {}
+      if (password === ADMIN_PASSWORD) {
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Set-Cookie': 'admin_auth=' + ADMIN_TOKEN + '; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax'
+        });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, message: '密码错误' }));
+      }
+    });
+    return;
+  }
+
   // Admin page: view registrations as a styled HTML table
   if (pathname === '/admin' && req.method === 'GET') {
+    // 未登录：只返回密码输入页，住户数据不会出现在网页源码里
+    if (parseCookies(req).admin_auth !== ADMIN_TOKEN) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(loginPageHTML());
+      return;
+    }
     try {
       const records = await storageSelect();
       const rows = records.map((r, idx) => `
-        <tr>
+        <tr data-apt="${escapeHTML(r['公寓'])}">
           <td>${escapeHTML(r['提交时间'])}</td>
           <td>${escapeHTML(r['公寓'])}</td>
           <td>${escapeHTML(r['房间号'])}</td>
@@ -446,8 +570,16 @@ async function handleRequest(req, res) {
 </head>
 <body>
   <div class="toolbar">
-    <h1>公寓入住登记数据（共 ${records.length} 条）</h1>
-    <div>
+    <h1>公寓入住登记数据（<span id="count-num">${records.length}</span> 条）</h1>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <label style="font-size:14px;color:#555;">按公寓筛选：</label>
+      <select id="apt-filter" style="padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;background:#fff;cursor:pointer;">
+        <option value="">全部公寓</option>
+        <option value="千禧">千禧</option>
+        <option value="香山">香山</option>
+        <option value="时代">时代</option>
+        <option value="爱家">爱家</option>
+      </select>
       <a class="btn" href="/api/download">下载 Excel 表格</a>
       <a class="btn" href="/admin" style="background:#576b95">刷新</a>
     </div>
@@ -497,6 +629,20 @@ async function handleRequest(req, res) {
     </div>
   </div>
 <script>
+/* ===== 公寓筛选 ===== */
+var aptFilter = document.getElementById('apt-filter');
+var countNum = document.getElementById('count-num');
+aptFilter.addEventListener('change', function(){
+  var sel = aptFilter.value;
+  var visible = 0;
+  document.querySelectorAll('tbody tr').forEach(function(tr){
+    var show = !sel || tr.dataset.apt === sel;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  countNum.textContent = visible;
+});
+
 document.querySelectorAll('.del-btn').forEach(function(btn){
   btn.addEventListener('click', async function(){
     if(!confirm('确定删除这条记录吗？此操作不可撤销。')) return;
